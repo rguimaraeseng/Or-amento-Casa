@@ -9,7 +9,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Chosen Palette: Warm Neutrals with distinct section colors -->
     <!-- Application Structure Plan: A dashboard-style SPA for couples, featuring monthly and annual summary tabs. The top navigation bar allows switching between months and an "Resumo Anual" (Annual Summary) view. The monthly view now includes separate income inputs for "Rogério" and "Sâmady". A central "Registro de Transações Diárias" section is enhanced with a "Quem Gastou?" (Who Spent?) dropdown (Rogério, Sâmady, Casal). Below this, the layout is divided into three main budget sections: "Orçamento Individual (Rogério)", "Orçamento Individual (Sâmady)", and "Orçamento do Casal". Each of these sections contains category cards (Essencial, Não Essencial, Investimento, Educação) displaying their respective budgeted, spent, and remaining amounts, along with subcategory breakdowns. The "Orçamento do Casal" section also features a combined monthly summary and a donut chart visualizing the couple's overall spending distribution. The "Resumo Anual" tab aggregates all income and expenses for both individuals and the couple for the entire year. This structure provides granular individual tracking, a consolidated couple's view, and comprehensive annual insights, facilitating joint financial planning and understanding. -->
     <!-- Visualization & Content Choices: 
         - Report Info: Individual & Couple budget distribution (monthly) -> Goal: Compare -> Viz: Donut Chart (Chart.js) for couple's spending, and numeric displays for individual category spending -> Interaction: Chart segments and all budget figures update in real-time as daily transactions are added/removed, showing spending proportions for the couple and detailed tracking for individuals. -> Justification: Provides clear, immediate visual and numeric summaries of where money is going at both individual and couple levels.
@@ -214,7 +214,7 @@
             <h2 class="text-3xl font-bold text-slate-800 mb-6 text-center">Orçamento Individual</h2>
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
                 <!-- Rogério -->
-                <div>
+                <div class="p-4 rounded-lg bg-blue-100"> <!-- Changed to bg-blue-100 -->
                     <h3 class="text-2xl font-bold text-slate-800 mb-4 text-center">Rogério</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <!-- Rogério Monthly Summary and Chart -->
@@ -308,7 +308,7 @@
                 </div>
 
                 <!-- Sâmady -->
-                <div>
+                <div class="p-4 rounded-lg bg-green-100"> <!-- Changed to bg-green-100 -->
                     <h3 class="text-2xl font-bold text-slate-800 mb-4 text-center">Sâmady</h3>
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
                         <!-- Sâmady Monthly Summary and Chart -->
@@ -403,101 +403,103 @@
 
             <!-- Couple's Budget Section -->
             <h2 class="text-3xl font-bold text-slate-800 mb-6 text-center">Orçamento do Casal</h2>
-            <section id="couple-summary-section" class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
-                <div class="lg:col-span-1 card p-6 order-2 lg:order-1 flex flex-col justify-center">
-                    <h3 class="text-2xl font-bold text-slate-800 mb-4 text-center">Resumo Mensal do Casal</h3>
-                    <div class="space-y-4 text-lg">
-                        <div class="flex justify-between items-center bg-slate-100 p-3 rounded-md">
-                            <span class="font-semibold">Orçado Total:</span>
-                            <span id="coupleTotalBudget" class="font-bold text-blue-600 text-xl">R$ 0,00</span>
+            <div class="p-4 rounded-lg bg-teal-50"> <!-- Added bg-teal-50 here for couple's section -->
+                <section id="couple-summary-section" class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+                    <div class="lg:col-span-1 card p-6 order-2 lg:order-1 flex flex-col justify-center">
+                        <h3 class="text-2xl font-bold text-slate-800 mb-4 text-center">Resumo Mensal do Casal</h3>
+                        <div class="space-y-4 text-lg">
+                            <div class="flex justify-between items-center bg-slate-100 p-3 rounded-md">
+                                <span class="font-semibold">Orçado Total:</span>
+                                <span id="coupleTotalBudget" class="font-bold text-blue-600 text-xl">R$ 0,00</span>
+                            </div>
+                            <div class="flex justify-between items-center bg-slate-100 p-3 rounded-md">
+                                <span class="font-semibold">Gasto Total:</span>
+                                <span id="coupleTotalSpent" class="font-bold text-slate-800 text-xl">R$ 0,00</span>
+                            </div>
+                            <div class="flex justify-between items-center bg-slate-100 p-3 rounded-md">
+                                <span class="font-semibold">Saldo Final do Casal:</span>
+                                <span id="coupleFinalBalance" class="font-bold text-green-600 text-xl">R$ 0,00</span>
+                            </div>
                         </div>
-                        <div class="flex justify-between items-center bg-slate-100 p-3 rounded-md">
-                            <span class="font-semibold">Gasto Total:</span>
-                            <span id="coupleTotalSpent" class="font-bold text-slate-800 text-xl">R$ 0,00</span>
-                        </div>
-                        <div class="flex justify-between items-center bg-slate-100 p-3 rounded-md">
-                            <span class="font-semibold">Saldo Final do Casal:</span>
-                            <span id="coupleFinalBalance" class="font-bold text-green-600 text-xl">R$ 0,00</span>
+                    </div>
+                    <div class="lg:col-span-2 card p-6 order-1 lg:order-2">
+                         <h3 class="text-2xl font-bold text-slate-800 mb-4 text-center">Distribuição de Gastos do Casal (Mês)</h3>
+                        <div class="chart-container">
+                            <canvas id="coupleBudgetChart"></canvas>
                         </div>
                     </div>
-                </div>
-                <div class="lg:col-span-2 card p-6 order-1 lg:order-2">
-                     <h3 class="text-2xl font-bold text-slate-800 mb-4 text-center">Distribuição de Gastos do Casal (Mês)</h3>
-                    <div class="chart-container">
-                        <canvas id="coupleBudgetChart"></canvas>
-                    </div>
-                </div>
-            </section>
+                </section>
 
-            <section id="couple-categories-section" class="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <!-- Categoria Essencial - Casal -->
-                <div class="card p-6" data-category="essencial" data-person="couple">
-                    <h3 class="text-2xl font-bold text-slate-800 mb-1">Essencial (Casal) <span class="text-lg font-medium text-slate-500">(50%)</span></h3>
-                    <p class="font-semibold text-indigo-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
-                    <div class="progress-container mb-4">
-                        <div class="progress-bar bg-indigo-500"></div>
+                <section id="couple-categories-section" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <!-- Categoria Essencial - Casal -->
+                    <div class="card p-6" data-category="essencial" data-person="couple">
+                        <h3 class="text-2xl font-bold text-slate-800 mb-1">Essencial (Casal) <span class="text-lg font-medium text-slate-500">(50%)</span></h3>
+                        <p class="font-semibold text-indigo-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
+                        <div class="progress-container mb-4">
+                            <div class="progress-bar bg-indigo-500"></div>
+                        </div>
+                        <div class="flex justify-between font-semibold mb-4">
+                            <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
+                            <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
+                        </div>
+                        <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
+                            <h4 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h4>
+                            <div class="subcategory-breakdown space-y-1"></div>
+                        </div>
                     </div>
-                    <div class="flex justify-between font-semibold mb-4">
-                        <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
-                        <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
-                    </div>
-                    <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
-                        <h4 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h4>
-                        <div class="subcategory-breakdown space-y-1"></div>
-                    </div>
-                </div>
 
-                <!-- Categoria Não Essencial - Casal -->
-                <div class="card p-6" data-category="nao_essencial" data-person="couple">
-                    <h3 class="text-2xl font-bold text-slate-800 mb-1">Não Essencial (Casal) <span class="text-lg font-medium text-slate-500">(30%)</span></h3>
-                    <p class="font-semibold text-cyan-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
-                    <div class="progress-container mb-4">
-                        <div class="progress-bar bg-cyan-500"></div>
+                    <!-- Categoria Não Essencial - Casal -->
+                    <div class="card p-6" data-category="nao_essencial" data-person="couple">
+                        <h3 class="text-2xl font-bold text-slate-800 mb-1">Não Essencial (Casal) <span class="text-lg font-medium text-slate-500">(30%)</span></h3>
+                        <p class="font-semibold text-cyan-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
+                        <div class="progress-container mb-4">
+                            <div class="progress-bar bg-cyan-500"></div>
+                        </div>
+                        <div class="flex justify-between font-semibold mb-4">
+                            <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
+                            <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
+                        </div>
+                        <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
+                            <h4 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h4>
+                            <div class="subcategory-breakdown space-y-1"></div>
+                        </div>
                     </div>
-                    <div class="flex justify-between font-semibold mb-4">
-                        <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
-                        <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
-                    </div>
-                    <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
-                        <h4 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h4>
-                        <div class="subcategory-breakdown space-y-1"></div>
-                    </div>
-                </div>
 
-                <!-- Categoria Investimento - Casal -->
-                <div class="card p-6" data-category="investimento" data-person="couple">
-                    <h3 class="text-2xl font-bold text-slate-800 mb-1">Investimento (Casal) <span class="text-lg font-medium text-slate-500">(10%)</span></h3>
-                    <p class="font-semibold text-amber-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
-                    <div class="progress-container mb-4">
-                        <div class="progress-bar bg-amber-500"></div>
+                    <!-- Categoria Investimento - Casal -->
+                    <div class="card p-6" data-category="investimento" data-person="couple">
+                        <h3 class="text-2xl font-bold text-slate-800 mb-1">Investimento (Casal) <span class="text-lg font-medium text-slate-500">(10%)</span></h3>
+                        <p class="font-semibold text-amber-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
+                        <div class="progress-container mb-4">
+                            <div class="progress-bar bg-amber-500"></div>
+                        </div>
+                        <div class="flex justify-between font-semibold mb-4">
+                            <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
+                            <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
+                        </div>
+                        <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
+                            <h4 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h4>
+                            <div class="subcategory-breakdown space-y-1"></div>
+                        </div>
                     </div>
-                    <div class="flex justify-between font-semibold mb-4">
-                        <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
-                        <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
-                    </div>
-                    <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
-                        <h4 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h4>
-                        <div class="subcategory-breakdown space-y-1"></div>
-                    </div>
-                </div>
 
-                <!-- Categoria Educação - Casal -->
-                <div class="card p-6" data-category="educacao" data-person="couple">
-                    <h3 class="text-2xl font-bold text-slate-800 mb-1">Educação (Casal) <span class="text-lg font-medium text-slate-500">(10%)</span></h3>
-                    <p class="font-semibold text-emerald-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
-                    <div class="progress-container mb-4">
-                        <div class="progress-bar bg-emerald-500"></div>
+                    <!-- Categoria Educação - Casal -->
+                    <div class="card p-6" data-category="educacao" data-person="couple">
+                        <h3 class="text-2xl font-bold text-slate-800 mb-1">Educação (Casal) <span class="text-lg font-medium text-slate-500">(10%)</span></h3>
+                        <p class="font-semibold text-emerald-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
+                        <div class="progress-container mb-4">
+                            <div class="progress-bar bg-emerald-500"></div>
+                        </div>
+                        <div class="flex justify-between font-semibold mb-4">
+                            <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
+                            <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
+                        </div>
+                        <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
+                            <h4 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h4>
+                            <div class="subcategory-breakdown space-y-1"></div>
+                        </div>
                     </div>
-                    <div class="flex justify-between font-semibold mb-4">
-                        <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
-                        <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
-                    </div>
-                    <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
-                        <h4 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h4>
-                        <div class="subcategory-breakdown space-y-1"></div>
-                    </div>
-                </div>
-            </section>
+                </section>
+            </div>
         </div>
 
         <!-- Annual Summary Content -->
