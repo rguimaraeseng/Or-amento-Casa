@@ -1,0 +1,1181 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Orçamento do Casal Interativo (Rogério e Sâmady)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Neutrals -->
+    <!-- Application Structure Plan: A dashboard-style SPA for couples, featuring monthly and annual summary tabs. The top navigation bar allows switching between months and an "Resumo Anual" (Annual Summary) view. The monthly view now includes separate income inputs for "Rogério" and "Sâmady". A central "Registro de Transações Diárias" section is enhanced with a "Quem Gastou?" (Who Spent?) dropdown (Rogério, Sâmady, Casal). Below this, the layout is divided into three main budget sections: "Orçamento Individual (Rogério)", "Orçamento Individual (Sâmady)", and "Orçamento do Casal". Each of these sections contains category cards (Essencial, Não Essencial, Investimento, Educação) displaying their respective budgeted, spent, and remaining amounts, along with subcategory breakdowns. The "Orçamento do Casal" section also features a combined monthly summary and a donut chart visualizing the couple's overall spending distribution. The "Resumo Anual" tab aggregates all income and expenses for both individuals and the couple for the entire year. This structure provides granular individual tracking, a consolidated couple's view, and comprehensive annual insights, facilitating joint financial planning and understanding. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Individual & Couple budget distribution (monthly) -> Goal: Compare -> Viz: Donut Chart (Chart.js) for couple's spending, and numeric displays for individual category spending -> Interaction: Chart segments and all budget figures update in real-time as daily transactions are added/removed, showing spending proportions for the couple and detailed tracking for individuals. -> Justification: Provides clear, immediate visual and numeric summaries of where money is going at both individual and couple levels.
+        - Report Info: Spent vs. Budget per category (individual & couple, monthly) -> Goal: Compare/Inform -> Viz: Progress Bars (HTML/CSS) & Numeric Displays -> Interaction: Bars fill and numbers update as daily transactions are entered. Bars turn red if over budget. -> Justification: Offers at-a-glance status for budget health, adapted for individual and combined views.
+        - Report Info: Individual daily expenses with main and subcategories and spender -> Goal: Input/Track -> Viz: Input Fields (Date, Description, Amount, Main Category, Subcategory, Spender) & Dynamic List/Table -> Interaction: Users input daily transactions, specifying who spent. Transactions are added to a list and automatically update individual and couple category totals. -> Justification: Provides granular, flexible, and accountable expense logging.
+        - Report Info: Spent per subcategory (monthly) -> Goal: Inform/Detail -> Viz: Numeric Displays within main category cards -> Interaction: Automatically calculated from daily transactions and displayed as a list. -> Justification: Offers immediate insight into spending patterns within each main budget area for both individuals and the couple.
+        - Report Info: Aggregated annual totals (individual & couple) -> Goal: Inform/Summarize -> Viz: Numeric Displays -> Interaction: Automatically calculated from all monthly daily transaction data. -> Justification: Provides a high-level overview of annual financial performance across all categories for the couple.
+        - Library/Method: Chart.js for canvas-based visualizations, Vanilla JS for state management and DOM manipulation, Tailwind CSS for styling. -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc; /* slate-50 */
+            color: #334155; /* slate-700 */
+        }
+        .main-container {
+            max-width: 1280px;
+        }
+        .card {
+            background-color: #ffffff;
+            border-radius: 0.75rem;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+            transition: all 0.2s ease-in-out;
+        }
+        .card:hover {
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
+            transform: translateY(-2px);
+        }
+        .progress-container {
+            background-color: #e2e8f0; /* slate-200 */
+            border-radius: 9999px;
+            height: 0.75rem;
+            overflow: hidden;
+        }
+        .progress-bar {
+            height: 100%;
+            width: 0%;
+            border-radius: 9999px;
+            transition: width 0.3s ease-in-out, background-color 0.3s ease-in-out;
+        }
+        .progress-bar.over-budget {
+            background-color: #ef4444 !important; /* red-500 */
+        }
+        .chart-container {
+            position: relative;
+            height: 300px; /* Base height */
+            width: 100%;
+            max-width: 400px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        .tab-button {
+            padding: 0.75rem 1.25rem;
+            border-radius: 0.5rem 0.5rem 0 0;
+            font-weight: 600;
+            color: #64748b; /* slate-500 */
+            background-color: #e2e8f0; /* slate-200 */
+            cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+        .tab-button.active {
+            background-color: #ffffff;
+            color: #1e293b; /* slate-900 */
+            box-shadow: 0 -2px 5px rgba(0,0,0,0.05);
+            z-index: 10;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .transaction-item {
+            display: grid;
+            grid-template-columns: 0.8fr 1.5fr 1fr 1fr 1fr 1fr auto; /* Adjusted for subcategory and spentBy */
+            gap: 0.5rem;
+            align-items: center;
+            padding: 0.75rem;
+            background-color: #f1f5f9; /* slate-100 */
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+        }
+        .transaction-item .delete-btn {
+            background-color: #ef4444; /* red-500 */
+            color: white;
+            padding: 0.3rem 0.6rem;
+            border-radius: 0.375rem;
+            font-size: 0.8rem;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .transaction-item .delete-btn:hover {
+            background-color: #dc2626; /* red-600 */
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 md:p-8">
+    <div class="main-container mx-auto">
+        <header class="text-center mb-8">
+            <h1 class="text-4xl font-bold text-slate-800 mb-2">Painel de Orçamento do Casal</h1>
+            <p class="text-lg text-slate-600">Gerencie suas finanças de forma interativa e visual, individualmente e em conjunto.</p>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="flex flex-wrap border-b border-slate-300 mb-8 -mx-4 sm:-mx-6 md:-mx-8">
+            <button class="tab-button active" data-tab="janeiro">Janeiro</button>
+            <button class="tab-button" data-tab="fevereiro">Fevereiro</button>
+            <button class="tab-button" data-tab="marco">Março</button>
+            <button class="tab-button" data-tab="abril">Abril</button>
+            <button class="tab-button" data-tab="maio">Maio</button>
+            <button class="tab-button" data-tab="junho">Junho</button>
+            <button class="tab-button" data-tab="julho">Julho</button>
+            <button class="tab-button" data-tab="agosto">Agosto</button>
+            <button class="tab-button" data-tab="setembro">Setembro</button>
+            <button class="tab-button" data-tab="outubro">Outubro</button>
+            <button class="tab-button" data-tab="novembro">Novembro</button>
+            <button class="tab-button" data-tab="dezembro">Dezembro</button>
+            <button class="tab-button ml-auto bg-indigo-500 text-white hover:bg-indigo-600 rounded-b-none" data-tab="resumo_anual">Resumo Anual</button>
+        </nav>
+
+        <!-- Monthly Content -->
+        <div id="monthly-content" class="tab-content active">
+            <section id="income-section" class="card p-6 mb-8 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label for="monthlyIncomePerson1" class="block text-xl font-semibold text-slate-700 mb-2">Renda Líquida Mensal (Rogério - R$)</label>
+                    <input type="number" id="monthlyIncomePerson1" placeholder="Ex: 3000.00" min="0" step="0.01"
+                           class="w-full p-3 text-2xl font-semibold border-2 border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                </div>
+                <div>
+                    <label for="monthlyIncomePerson2" class="block text-xl font-semibold text-slate-700 mb-2">Renda Líquida Mensal (Sâmady - R$)</label>
+                    <input type="number" id="monthlyIncomePerson2" placeholder="Ex: 2000.00" min="0" step="0.01"
+                           class="w-full p-3 text-2xl font-semibold border-2 border-slate-300 rounded-md focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition">
+                </div>
+            </section>
+
+            <section id="daily-transactions-section" class="card p-6 mb-8">
+                <h2 class="text-2xl font-bold text-slate-800 mb-4 text-center">Registro de Transações Diárias</h2>
+                <p class="text-lg text-slate-600 mb-6 text-center">Registre seus gastos diários e categorize-os para um controle detalhado.</p>
+                <div class="grid grid-cols-1 md:grid-cols-7 gap-4 items-end mb-6">
+                    <div>
+                        <label for="transactionDate" class="block text-sm font-medium text-slate-700">Data</label>
+                        <input type="date" id="transactionDate" class="w-full p-2 border border-slate-300 rounded-md">
+                    </div>
+                    <div class="md:col-span-2">
+                        <label for="transactionDescription" class="block text-sm font-medium text-slate-700">Descrição (Onde foi gasto)</label>
+                        <input type="text" id="transactionDescription" placeholder="Ex: Almoço no restaurante X" class="w-full p-2 border border-slate-300 rounded-md">
+                    </div>
+                    <div>
+                        <label for="transactionAmount" class="block text-sm font-medium text-slate-700">Valor (R$)</label>
+                        <input type="number" id="transactionAmount" min="0" step="0.01" placeholder="0.00" class="w-full p-2 border border-slate-300 rounded-md">
+                    </div>
+                    <div>
+                        <label for="transactionMainCategory" class="block text-sm font-medium text-slate-700">Categoria Principal</label>
+                        <select id="transactionMainCategory" class="w-full p-2 border border-slate-300 rounded-md bg-white">
+                            <option value="">Selecione</option>
+                            <option value="essencial">Essencial</option>
+                            <option value="nao_essencial">Não Essencial</option>
+                            <option value="investimento">Investimento</option>
+                            <option value="educacao">Educação</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="transactionSubCategory" class="block text-sm font-medium text-slate-700">Subcategoria</label>
+                        <select id="transactionSubCategory" class="w-full p-2 border border-slate-300 rounded-md bg-white" disabled>
+                            <option value="">Selecione a Categoria Principal</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label for="transactionSpentBy" class="block text-sm font-medium text-slate-700">Quem Gastou?</label>
+                        <select id="transactionSpentBy" class="w-full p-2 border border-slate-300 rounded-md bg-white">
+                            <option value="">Selecione</option>
+                            <option value="person1">Rogério</option>
+                            <option value="person2">Sâmady</option>
+                            <option value="couple">Casal (Compartilhado)</option>
+                        </select>
+                    </div>
+                    <div class="md:col-span-7">
+                        <button id="addTransactionBtn" class="w-full bg-indigo-600 text-white p-3 rounded-md font-semibold hover:bg-indigo-700 transition">Adicionar Gasto</button>
+                    </div>
+                </div>
+
+                <h3 class="text-xl font-bold text-slate-800 mb-4">Últimos Gastos do Mês</h3>
+                <div id="transactionsList" class="space-y-3 max-h-80 overflow-y-auto border border-slate-200 rounded-md p-4">
+                    <p class="text-slate-500 text-center" id="noTransactionsMessage">Nenhum gasto registrado para este mês ainda.</p>
+                </div>
+            </section>
+            
+            <!-- Individual Budget Sections -->
+            <h2 class="text-3xl font-bold text-slate-800 mb-6 text-center">Orçamento Individual</h2>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-10">
+                <!-- Rogério -->
+                <div>
+                    <h3 class="text-2xl font-bold text-slate-800 mb-4 text-center">Rogério</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <!-- Rogério Monthly Summary and Chart -->
+                        <div class="md:col-span-2 card p-6 mb-8">
+                            <h4 class="text-xl font-bold text-slate-800 mb-4 text-center">Resumo Mensal (Rogério)</h4>
+                            <div class="space-y-4 text-lg mb-4">
+                                <div class="flex justify-between items-center bg-slate-100 p-3 rounded-md">
+                                    <span class="font-semibold">Orçado:</span>
+                                    <span id="person1TotalBudget" class="font-bold text-blue-600 text-xl">R$ 0,00</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-slate-100 p-3 rounded-md">
+                                    <span class="font-semibold">Gasto:</span>
+                                    <span id="person1TotalSpent" class="font-bold text-slate-800 text-xl">R$ 0,00</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-slate-100 p-3 rounded-md">
+                                    <span class="font-semibold">Saldo Final:</span>
+                                    <span id="person1FinalBalance" class="font-bold text-green-600 text-xl">R$ 0,00</span>
+                                </div>
+                            </div>
+                            <h4 class="text-xl font-bold text-slate-800 mb-4 text-center">Distribuição de Gastos (Rogério)</h4>
+                            <div class="chart-container">
+                                <canvas id="person1BudgetChart"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Categoria Essencial - Rogério -->
+                        <div class="card p-6" data-category="essencial" data-person="person1">
+                            <h4 class="text-xl font-bold text-slate-800 mb-1">Essencial <span class="text-base font-medium text-slate-500">(50%)</span></h4>
+                            <p class="font-semibold text-indigo-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
+                            <div class="progress-container mb-4">
+                                <div class="progress-bar bg-indigo-500"></div>
+                            </div>
+                            <div class="flex justify-between font-semibold mb-4">
+                                <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
+                                <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
+                            </div>
+                            <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
+                                <h5 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h5>
+                                <div class="subcategory-breakdown space-y-1"></div>
+                            </div>
+                        </div>
+                        <!-- Categoria Não Essencial - Rogério -->
+                        <div class="card p-6" data-category="nao_essencial" data-person="person1">
+                            <h4 class="text-xl font-bold text-slate-800 mb-1">Não Essencial <span class="text-base font-medium text-slate-500">(30%)</span></h4>
+                            <p class="font-semibold text-cyan-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
+                            <div class="progress-container mb-4">
+                                <div class="progress-bar bg-cyan-500"></div>
+                            </div>
+                            <div class="flex justify-between font-semibold mb-4">
+                                <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
+                                <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
+                            </div>
+                            <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
+                                <h5 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h5>
+                                <div class="subcategory-breakdown space-y-1"></div>
+                            </div>
+                        </div>
+                        <!-- Categoria Investimento - Rogério -->
+                        <div class="card p-6" data-category="investimento" data-person="person1">
+                            <h4 class="text-xl font-bold text-slate-800 mb-1">Investimento <span class="text-base font-medium text-slate-500">(10%)</span></h4>
+                            <p class="font-semibold text-amber-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
+                            <div class="progress-container mb-4">
+                                <div class="progress-bar bg-amber-500"></div>
+                            </div>
+                            <div class="flex justify-between font-semibold mb-4">
+                                <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
+                                <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
+                            </div>
+                            <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
+                                <h5 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h5>
+                                <div class="subcategory-breakdown space-y-1"></div>
+                            </div>
+                        </div>
+                        <!-- Categoria Educação - Rogério -->
+                        <div class="card p-6" data-category="educacao" data-person="person1">
+                            <h4 class="text-xl font-bold text-slate-800 mb-1">Educação <span class="text-base font-medium text-slate-500">(10%)</span></h4>
+                            <p class="font-semibold text-emerald-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
+                            <div class="progress-container mb-4">
+                                <div class="progress-bar bg-emerald-500"></div>
+                            </div>
+                            <div class="flex justify-between font-semibold mb-4">
+                                <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
+                                <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
+                            </div>
+                            <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
+                                <h5 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h5>
+                                <div class="subcategory-breakdown space-y-1"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sâmady -->
+                <div>
+                    <h3 class="text-2xl font-bold text-slate-800 mb-4 text-center">Sâmady</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <!-- Sâmady Monthly Summary and Chart -->
+                        <div class="md:col-span-2 card p-6 mb-8">
+                            <h4 class="text-xl font-bold text-slate-800 mb-4 text-center">Resumo Mensal (Sâmady)</h4>
+                            <div class="space-y-4 text-lg mb-4">
+                                <div class="flex justify-between items-center bg-slate-100 p-3 rounded-md">
+                                    <span class="font-semibold">Orçado:</span>
+                                    <span id="person2TotalBudget" class="font-bold text-blue-600 text-xl">R$ 0,00</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-slate-100 p-3 rounded-md">
+                                    <span class="font-semibold">Gasto:</span>
+                                    <span id="person2TotalSpent" class="font-bold text-slate-800 text-xl">R$ 0,00</span>
+                                </div>
+                                <div class="flex justify-between items-center bg-slate-100 p-3 rounded-md">
+                                    <span class="font-semibold">Saldo Final:</span>
+                                    <span id="person2FinalBalance" class="font-bold text-green-600 text-xl">R$ 0,00</span>
+                                </div>
+                            </div>
+                            <h4 class="text-xl font-bold text-slate-800 mb-4 text-center">Distribuição de Gastos (Sâmady)</h4>
+                            <div class="chart-container">
+                                <canvas id="person2BudgetChart"></canvas>
+                            </div>
+                        </div>
+                        <!-- Categoria Essencial - Sâmady -->
+                        <div class="card p-6" data-category="essencial" data-person="person2">
+                            <h4 class="text-xl font-bold text-slate-800 mb-1">Essencial <span class="text-base font-medium text-slate-500">(50%)</span></h4>
+                            <p class="font-semibold text-indigo-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
+                            <div class="progress-container mb-4">
+                                <div class="progress-bar bg-indigo-500"></div>
+                            </div>
+                            <div class="flex justify-between font-semibold mb-4">
+                                <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
+                                <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
+                            </div>
+                            <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
+                                <h5 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h5>
+                                <div class="subcategory-breakdown space-y-1"></div>
+                            </div>
+                        </div>
+                        <!-- Categoria Não Essencial - Sâmady -->
+                        <div class="card p-6" data-category="nao_essencial" data-person="person2">
+                            <h4 class="text-xl font-bold text-slate-800 mb-1">Não Essencial <span class="text-base font-medium text-slate-500">(30%)</span></h4>
+                            <p class="font-semibold text-cyan-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
+                            <div class="progress-container mb-4">
+                                <div class="progress-bar bg-cyan-500"></div>
+                            </div>
+                            <div class="flex justify-between font-semibold mb-4">
+                                <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
+                                <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
+                            </div>
+                            <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
+                                <h5 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h5>
+                                <div class="subcategory-breakdown space-y-1"></div>
+                            </div>
+                        </div>
+                        <!-- Categoria Investimento - Sâmady -->
+                        <div class="card p-6" data-category="investimento" data-person="person2">
+                            <h4 class="text-xl font-bold text-slate-800 mb-1">Investimento <span class="text-base font-medium text-slate-500">(10%)</span></h4>
+                            <p class="font-semibold text-amber-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
+                            <div class="progress-container mb-4">
+                                <div class="progress-bar bg-amber-500"></div>
+                            </div>
+                            <div class="flex justify-between font-semibold mb-4">
+                                <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
+                                <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
+                            </div>
+                            <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
+                                <h5 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h5>
+                                <div class="subcategory-breakdown space-y-1"></div>
+                            </div>
+                        </div>
+                        <!-- Categoria Educação - Sâmady -->
+                        <div class="card p-6" data-category="educacao" data-person="person2">
+                            <h4 class="text-xl font-bold text-slate-800 mb-1">Educação <span class="text-base font-medium text-slate-500">(10%)</span></h4>
+                            <p class="font-semibold text-emerald-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
+                            <div class="progress-container mb-4">
+                                <div class="progress-bar bg-emerald-500"></div>
+                            </div>
+                            <div class="flex justify-between font-semibold mb-4">
+                                <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
+                                <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
+                            </div>
+                            <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
+                                <h5 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h5>
+                                <div class="subcategory-breakdown space-y-1"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Couple's Budget Section -->
+            <h2 class="text-3xl font-bold text-slate-800 mb-6 text-center">Orçamento do Casal</h2>
+            <section id="couple-summary-section" class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+                <div class="lg:col-span-1 card p-6 order-2 lg:order-1 flex flex-col justify-center">
+                    <h3 class="text-2xl font-bold text-slate-800 mb-4 text-center">Resumo Mensal do Casal</h3>
+                    <div class="space-y-4 text-lg">
+                        <div class="flex justify-between items-center bg-slate-100 p-3 rounded-md">
+                            <span class="font-semibold">Orçado Total:</span>
+                            <span id="coupleTotalBudget" class="font-bold text-blue-600 text-xl">R$ 0,00</span>
+                        </div>
+                        <div class="flex justify-between items-center bg-slate-100 p-3 rounded-md">
+                            <span class="font-semibold">Gasto Total:</span>
+                            <span id="coupleTotalSpent" class="font-bold text-slate-800 text-xl">R$ 0,00</span>
+                        </div>
+                        <div class="flex justify-between items-center bg-slate-100 p-3 rounded-md">
+                            <span class="font-semibold">Saldo Final do Casal:</span>
+                            <span id="coupleFinalBalance" class="font-bold text-green-600 text-xl">R$ 0,00</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="lg:col-span-2 card p-6 order-1 lg:order-2">
+                     <h3 class="text-2xl font-bold text-slate-800 mb-4 text-center">Distribuição de Gastos do Casal (Mês)</h3>
+                    <div class="chart-container">
+                        <canvas id="coupleBudgetChart"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section id="couple-categories-section" class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Categoria Essencial - Casal -->
+                <div class="card p-6" data-category="essencial" data-person="couple">
+                    <h3 class="text-2xl font-bold text-slate-800 mb-1">Essencial (Casal) <span class="text-lg font-medium text-slate-500">(50%)</span></h3>
+                    <p class="font-semibold text-indigo-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
+                    <div class="progress-container mb-4">
+                        <div class="progress-bar bg-indigo-500"></div>
+                    </div>
+                    <div class="flex justify-between font-semibold mb-4">
+                        <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
+                        <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
+                    </div>
+                    <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
+                        <h4 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h4>
+                        <div class="subcategory-breakdown space-y-1"></div>
+                    </div>
+                </div>
+
+                <!-- Categoria Não Essencial - Casal -->
+                <div class="card p-6" data-category="nao_essencial" data-person="couple">
+                    <h3 class="text-2xl font-bold text-slate-800 mb-1">Não Essencial (Casal) <span class="text-lg font-medium text-slate-500">(30%)</span></h3>
+                    <p class="font-semibold text-cyan-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
+                    <div class="progress-container mb-4">
+                        <div class="progress-bar bg-cyan-500"></div>
+                    </div>
+                    <div class="flex justify-between font-semibold mb-4">
+                        <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
+                        <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
+                    </div>
+                    <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
+                        <h4 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h4>
+                        <div class="subcategory-breakdown space-y-1"></div>
+                    </div>
+                </div>
+
+                <!-- Categoria Investimento - Casal -->
+                <div class="card p-6" data-category="investimento" data-person="couple">
+                    <h3 class="text-2xl font-bold text-slate-800 mb-1">Investimento (Casal) <span class="text-lg font-medium text-slate-500">(10%)</span></h3>
+                    <p class="font-semibold text-amber-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
+                    <div class="progress-container mb-4">
+                        <div class="progress-bar bg-amber-500"></div>
+                    </div>
+                    <div class="flex justify-between font-semibold mb-4">
+                        <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
+                        <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
+                    </div>
+                    <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
+                        <h4 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h4>
+                        <div class="subcategory-breakdown space-y-1"></div>
+                    </div>
+                </div>
+
+                <!-- Categoria Educação - Casal -->
+                <div class="card p-6" data-category="educacao" data-person="couple">
+                    <h3 class="text-2xl font-bold text-slate-800 mb-1">Educação (Casal) <span class="text-lg font-medium text-slate-500">(10%)</span></h3>
+                    <p class="font-semibold text-emerald-600 mb-3">Orçado: <span class="budget-value">R$ 0,00</span></p>
+                    <div class="progress-container mb-4">
+                        <div class="progress-bar bg-emerald-500"></div>
+                    </div>
+                    <div class="flex justify-between font-semibold mb-4">
+                        <span>Gasto: <span class="spent-value">R$ 0,00</span></span>
+                        <span>Restante: <span class="remaining-value text-green-600">R$ 0,00</span></span>
+                    </div>
+                    <div class="space-y-2 mt-4 pt-4 border-t border-slate-200">
+                        <h4 class="text-lg font-semibold text-slate-700">Detalhes dos Gastos:</h4>
+                        <div class="subcategory-breakdown space-y-1"></div>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- Annual Summary Content -->
+        <div id="annual-summary-content" class="tab-content">
+            <section class="card p-6 mb-8">
+                <h2 class="text-3xl font-bold text-slate-800 mb-6 text-center">Resumo Anual de Orçamento</h2>
+                <p class="text-lg text-slate-600 mb-8 text-center">Aqui você pode visualizar o total de sua renda e gastos consolidados ao longo de todos os meses.</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 text-lg">
+                    <div class="bg-blue-50 p-4 rounded-md shadow-sm">
+                        <span class="font-semibold text-blue-800">Renda Anual Total (Casal):</span>
+                        <span id="annualIncomeTotal" class="font-bold text-blue-700 text-xl block mt-1">R$ 0,00</span>
+                    </div>
+                    <div class="bg-slate-100 p-4 rounded-md shadow-sm">
+                        <span class="font-semibold text-slate-700">Gasto Anual Total (Casal):</span>
+                        <span id="annualSpentTotal" class="font-bold text-slate-800 text-xl block mt-1">R$ 0,00</span>
+                    </div>
+                    <div class="bg-green-50 p-4 rounded-md shadow-sm">
+                        <span class="font-semibold text-green-800">Saldo Anual Final (Casal):</span>
+                        <span id="annualBalanceTotal" class="font-bold text-green-700 text-xl block mt-1">R$ 0,00</span>
+                    </div>
+                </div>
+
+                <h3 class="text-2xl font-bold text-slate-800 mt-10 mb-6 text-center">Gastos Anuais por Categoria (Casal)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="bg-indigo-50 p-4 rounded-md shadow-sm">
+                        <span class="font-semibold text-indigo-800">Essencial:</span>
+                        <span id="annualSpentEssencial" class="font-bold text-indigo-700 text-xl block mt-1">R$ 0,00</span>
+                    </div>
+                    <div class="bg-cyan-50 p-4 rounded-md shadow-sm">
+                        <span class="font-semibold text-cyan-800">Não Essencial:</span>
+                        <span id="annualSpentNaoEssencial" class="font-bold text-cyan-700 text-xl block mt-1">R$ 0,00</span>
+                    </div>
+                    <div class="bg-amber-50 p-4 rounded-md shadow-sm">
+                        <span class="font-semibold text-amber-800">Investimento:</span>
+                        <span id="annualSpentInvestimento" class="font-bold text-amber-700 text-xl block mt-1">R$ 0,00</span>
+                    </div>
+                    <div class="bg-emerald-50 p-4 rounded-md shadow-sm">
+                        <span class="font-semibold text-emerald-800">Educação:</span>
+                        <span id="annualSpentEducacao" class="font-bold text-emerald-700 text-xl block mt-1">R$ 0,00</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+    </div>
+
+    <script>
+        const months = ['janeiro', 'fevereiro', 'marco', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
+        const state = {
+            currentMonth: 'janeiro',
+            monthlyData: {},
+            percentages: {
+                essencial: 0.50,
+                nao_essencial: 0.30,
+                investimento: 0.10,
+                educacao: 0.10
+            }
+        };
+
+        const subcategories = {
+            essencial: [
+                { value: 'transporte', label: 'Transporte' },
+                { value: 'saude_beleza', label: 'Saúde/Beleza' },
+                { value: 'moradia', label: 'Moradia' },
+                { value: 'alimentacao', label: 'Alimentação' },
+                { value: 'servicos', label: 'Serviços (água, luz, internet)' },
+                { value: 'essencial_extra_1', label: 'Outro Essencial 1' },
+                { value: 'essencial_extra_2', label: 'Outro Essencial 2' },
+                { value: 'essencial_extra_3', label: 'Outro Essencial 3' }
+            ],
+            nao_essencial: [
+                { value: 'comer_fora', label: 'Comer Fora' },
+                { value: 'lanches', label: 'Lanches' },
+                { value: 'tecnologia', label: 'Tecnologia' },
+                { value: 'vestuario', label: 'Vestuário' },
+                { value: 'presentes', label: 'Presentes' },
+                { value: 'lazer', label: 'Lazer' },
+                { value: 'outros_nao_essencial', label: 'Outros (Não Essencial)' },
+                { value: 'esporte', label: 'Esporte' },
+                { value: 'nao_essencial_extra_1', label: 'Outro Não Essencial 1' },
+                { value: 'nao_essencial_extra_2', label: 'Outro Não Essencial 2' },
+                { value: 'nao_essencial_extra_3', label: 'Outro Não Essencial 3' }
+            ],
+            investimento: [
+                { value: 'reserva', label: 'Reserva' },
+                { value: 'acoes', label: 'Ações' },
+                { value: 'investimento_extra_1', label: 'Outro Investimento 1' },
+                { value: 'investimento_extra_2', label: 'Outro Investimento 2' },
+                { value: 'investimento_extra_3', label: 'Outro Investimento 3' }
+            ],
+            educacao: [
+                { value: 'fies', label: 'FIES' },
+                { value: 'cursos', label: 'Cursos' },
+                { value: 'educacao_extra_1', label: 'Outra Educação 1' },
+                { value: 'educacao_extra_2', label: 'Outra Educação 2' },
+                { value: 'educacao_extra_3', label: 'Outra Educação 3' }
+            ]
+        };
+
+        // Initialize monthlyData for all months
+        months.forEach(month => {
+            state.monthlyData[month] = {
+                incomePerson1: 0,
+                incomePerson2: 0,
+                transactions: [] // Array to store daily transactions
+            };
+        });
+
+        const monthlyIncomePerson1Input = document.getElementById('monthlyIncomePerson1');
+        const monthlyIncomePerson2Input = document.getElementById('monthlyIncomePerson2');
+
+        const person1TotalBudgetEl = document.getElementById('person1TotalBudget');
+        const person1TotalSpentEl = document.getElementById('person1TotalSpent');
+        const person1FinalBalanceEl = document.getElementById('person1FinalBalance');
+        const person2TotalBudgetEl = document.getElementById('person2TotalBudget');
+        const person2TotalSpentEl = document.getElementById('person2TotalSpent');
+        const person2FinalBalanceEl = document.getElementById('person2FinalBalance');
+
+        const coupleTotalBudgetEl = document.getElementById('coupleTotalBudget');
+        const coupleTotalSpentEl = document.getElementById('coupleTotalSpent');
+        const coupleFinalBalanceEl = document.getElementById('coupleFinalBalance');
+
+        const categoryCards = document.querySelectorAll('.card[data-category]');
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const monthlyContent = document.getElementById('monthly-content');
+        const annualSummaryContent = document.getElementById('annual-summary-content');
+
+        const transactionDateInput = document.getElementById('transactionDate');
+        const transactionDescriptionInput = document.getElementById('transactionDescription');
+        const transactionAmountInput = document.getElementById('transactionAmount');
+        const transactionMainCategorySelect = document.getElementById('transactionMainCategory');
+        const transactionSubCategorySelect = document.getElementById('transactionSubCategory');
+        const transactionSpentBySelect = document.getElementById('transactionSpentBy');
+        const addTransactionBtn = document.getElementById('addTransactionBtn');
+        const transactionsList = document.getElementById('transactionsList');
+        const noTransactionsMessage = document.getElementById('noTransactionsMessage');
+
+        const annualIncomeTotalEl = document.getElementById('annualIncomeTotal');
+        const annualSpentTotalEl = document.getElementById('annualSpentTotal');
+        const annualBalanceTotalEl = document.getElementById('annualBalanceTotal');
+        const annualSpentEssencialEl = document.getElementById('annualSpentEssencial');
+        const annualSpentNaoEssencialEl = document.getElementById('annualSpentNaoEssencial');
+        const annualSpentInvestimentoEl = document.getElementById('annualSpentInvestimento');
+        const annualSpentEducacaoEl = document.getElementById('annualSpentEducacao');
+
+        function formatCurrency(value) {
+            const val = value || 0;
+            return `R$ ${val.toFixed(2).replace('.', ',')}`;
+        }
+
+        function updateProgressBar(spent, budget, progressBarElement) {
+            let percentage = budget > 0 ? (spent / budget) * 100 : 0;
+            progressBarElement.style.width = `${Math.min(percentage, 100)}%`;
+            progressBarElement.classList.toggle('over-budget', percentage > 100);
+        }
+
+        // Couple's Chart
+        const coupleCtx = document.getElementById('coupleBudgetChart').getContext('2d');
+        const coupleBudgetChart = new Chart(coupleCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Essencial', 'Não Essencial', 'Investimento', 'Educação'],
+                datasets: [{
+                    label: 'Gastos por Categoria (Casal)',
+                    data: [0, 0, 0, 0],
+                    backgroundColor: [
+                        '#6366f1', // indigo-500 (Essencial)
+                        '#06b6d4', // cyan-500 (Não Essencial)
+                        '#f59e0b', // amber-500 (Investimento)
+                        '#10b981'  // emerald-500 (Educação)
+                    ],
+                    borderColor: '#ffffff',
+                    borderWidth: 4,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            font: {
+                                size: 14,
+                                family: 'Inter'
+                            },
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed !== null) {
+                                    label += formatCurrency(context.parsed);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Rogério's Chart
+        const person1Ctx = document.getElementById('person1BudgetChart').getContext('2d');
+        const person1BudgetChart = new Chart(person1Ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Essencial', 'Não Essencial', 'Investimento', 'Educação'],
+                datasets: [{
+                    label: 'Gastos por Categoria (Rogério)',
+                    data: [0, 0, 0, 0],
+                    backgroundColor: [
+                        '#6366f1', // indigo-500 (Essencial)
+                        '#06b6d4', // cyan-500 (Não Essencial)
+                        '#f59e0b', // amber-500 (Investimento)
+                        '#10b981'  // emerald-500 (Educação)
+                    ],
+                    borderColor: '#ffffff',
+                    borderWidth: 4,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            font: {
+                                size: 14,
+                                family: 'Inter'
+                            },
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed !== null) {
+                                    label += formatCurrency(context.parsed);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        // Sâmady's Chart
+        const person2Ctx = document.getElementById('person2BudgetChart').getContext('2d');
+        const person2BudgetChart = new Chart(person2Ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Essencial', 'Não Essencial', 'Investimento', 'Educação'],
+                datasets: [{
+                    label: 'Gastos por Categoria (Sâmady)',
+                    data: [0, 0, 0, 0],
+                    backgroundColor: [
+                        '#6366f1', // indigo-500 (Essencial)
+                        '#06b6d4', // cyan-500 (Não Essencial)
+                        '#f59e0b', // amber-500 (Investimento)
+                        '#10b981'  // emerald-500 (Educação)
+                    ],
+                    borderColor: '#ffffff',
+                    borderWidth: 4,
+                    hoverOffset: 8
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '60%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            font: {
+                                size: 14,
+                                family: 'Inter'
+                            },
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let label = context.label || '';
+                                if (label) {
+                                    label += ': ';
+                                }
+                                if (context.parsed !== null) {
+                                    label += formatCurrency(context.parsed);
+                                }
+                                return label;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        function updateChart(chartInstance, categorySpents) {
+            const newData = [
+                categorySpents.essencial,
+                categorySpents.nao_essencial,
+                categorySpents.investimento,
+                categorySpents.educacao
+            ];
+            chartInstance.data.datasets[0].data = newData;
+            chartInstance.update();
+        }
+
+        function updateMonthlyUI() {
+            const currentMonthData = state.monthlyData[state.currentMonth];
+            const incomePerson1 = currentMonthData.incomePerson1;
+            const incomePerson2 = currentMonthData.incomePerson2;
+            const totalCoupleIncome = incomePerson1 + incomePerson2;
+
+            monthlyIncomePerson1Input.value = incomePerson1 > 0 ? incomePerson1 : '';
+            monthlyIncomePerson2Input.value = incomePerson2 > 0 ? incomePerson2 : '';
+
+            let totalSpentCouple = 0;
+            const categorySpentsPerson1 = { essencial: 0, nao_essencial: 0, investimento: 0, educacao: 0 };
+            const categorySpentsPerson2 = { essencial: 0, nao_essencial: 0, investimento: 0, educacao: 0 };
+            const categorySpentsCouple = { essencial: 0, nao_essencial: 0, investimento: 0, educacao: 0 };
+
+            const subcategorySpentsPerson1 = { essencial: {}, nao_essencial: {}, investimento: {}, educacao: {} };
+            const subcategorySpentsPerson2 = { essencial: {}, nao_essencial: {}, investimento: {}, educacao: {} };
+            const subcategorySpentsCouple = { essencial: {}, nao_essencial: {}, investimento: {}, educacao: {} };
+
+            // Initialize subcategory totals to 0 for all
+            for (const mainCat in subcategories) {
+                subcategories[mainCat].forEach(subCat => {
+                    subcategorySpentsPerson1[mainCat][subCat.value] = 0;
+                    subcategorySpentsPerson2[mainCat][subCat.value] = 0;
+                    subcategorySpentsCouple[mainCat][subCat.value] = 0;
+                });
+            }
+
+            currentMonthData.transactions.forEach(transaction => {
+                const amount = transaction.amount;
+                const mainCat = transaction.mainCategory;
+                const subCat = transaction.subCategory;
+                const spentBy = transaction.spentBy;
+
+                // Update couple totals (all transactions contribute here)
+                if (categorySpentsCouple[mainCat] !== undefined) {
+                    categorySpentsCouple[mainCat] += amount;
+                    if (subcategorySpentsCouple[mainCat] && subcategorySpentsCouple[mainCat][subCat] !== undefined) {
+                        subcategorySpentsCouple[mainCat][subCat] += amount;
+                    }
+                }
+                totalSpentCouple += amount;
+
+                // Update individual totals
+                if (spentBy === 'person1' && categorySpentsPerson1[mainCat] !== undefined) {
+                    categorySpentsPerson1[mainCat] += amount;
+                    if (subcategorySpentsPerson1[mainCat] && subcategorySpentsPerson1[mainCat][subCat] !== undefined) {
+                        subcategorySpentsPerson1[mainCat][subCat] += amount;
+                    }
+                } else if (spentBy === 'person2' && categorySpentsPerson2[mainCat] !== undefined) {
+                    categorySpentsPerson2[mainCat] += amount;
+                    if (subcategorySpentsPerson2[mainCat] && subcategorySpentsPerson2[mainCat][subCat] !== undefined) {
+                        subcategorySpentsPerson2[mainCat][subCat] += amount;
+                    }
+                }
+                // If 'couple' spentBy, it only contributes to couple totals, not individual.
+            });
+
+            // Update individual monthly summaries
+            const person1BudgetTotal = incomePerson1;
+            const person1FinalBalance = person1BudgetTotal - (categorySpentsPerson1.essencial + categorySpentsPerson1.nao_essencial + categorySpentsPerson1.investimento + categorySpentsPerson1.educacao);
+            person1TotalBudgetEl.textContent = formatCurrency(person1BudgetTotal);
+            person1TotalSpentEl.textContent = formatCurrency(categorySpentsPerson1.essencial + categorySpentsPerson1.nao_essencial + categorySpentsPerson1.investimento + categorySpentsPerson1.educacao);
+            person1FinalBalanceEl.textContent = formatCurrency(person1FinalBalance);
+            person1FinalBalanceEl.classList.toggle('text-red-600', person1FinalBalance < 0);
+            person1FinalBalanceEl.classList.toggle('text-green-600', person1FinalBalance >= 0);
+            updateChart(person1BudgetChart, categorySpentsPerson1);
+
+            const person2BudgetTotal = incomePerson2;
+            const person2FinalBalance = person2BudgetTotal - (categorySpentsPerson2.essencial + categorySpentsPerson2.nao_essencial + categorySpentsPerson2.investimento + categorySpentsPerson2.educacao);
+            person2TotalBudgetEl.textContent = formatCurrency(person2BudgetTotal);
+            person2TotalSpentEl.textContent = formatCurrency(categorySpentsPerson2.essencial + categorySpentsPerson2.nao_essencial + categorySpentsPerson2.investimento + categorySpentsPerson2.educacao);
+            person2FinalBalanceEl.textContent = formatCurrency(person2FinalBalance);
+            person2FinalBalanceEl.classList.toggle('text-red-600', person2FinalBalance < 0);
+            person2FinalBalanceEl.classList.toggle('text-green-600', person2FinalBalance >= 0);
+            updateChart(person2BudgetChart, categorySpentsPerson2);
+
+
+            // Update individual category cards
+            categoryCards.forEach(card => {
+                const mainCategory = card.dataset.category;
+                const person = card.dataset.person; // 'person1', 'person2', or 'couple'
+
+                let incomeForBudget = 0;
+                let spentForCard = 0;
+                let subcategorySpentsForCard = {};
+
+                if (person === 'person1') {
+                    incomeForBudget = incomePerson1;
+                    spentForCard = categorySpentsPerson1[mainCategory];
+                    subcategorySpentsForCard = subcategorySpentsPerson1[mainCategory];
+                } else if (person === 'person2') {
+                    incomeForBudget = incomePerson2;
+                    spentForCard = categorySpentsPerson2[mainCategory];
+                    subcategorySpentsForCard = subcategorySpentsPerson2[mainCategory];
+                } else if (person === 'couple') {
+                    incomeForBudget = totalCoupleIncome;
+                    spentForCard = categorySpentsCouple[mainCategory];
+                    subcategorySpentsForCard = subcategorySpentsCouple[mainCategory];
+                }
+
+                const budgetValue = incomeForBudget * state.percentages[mainCategory];
+                const remainingValue = budgetValue - spentForCard;
+
+                card.querySelector('.budget-value').textContent = formatCurrency(budgetValue);
+                card.querySelector('.spent-value').textContent = formatCurrency(spentForCard);
+                const remainingEl = card.querySelector('.remaining-value');
+                remainingEl.textContent = formatCurrency(remainingValue);
+                remainingEl.classList.toggle('text-red-600', remainingValue < 0);
+                remainingEl.classList.toggle('text-green-600', remainingValue >= 0);
+                
+                const progressBar = card.querySelector('.progress-bar');
+                updateProgressBar(spentForCard, budgetValue, progressBar);
+
+                // Render subcategory breakdown
+                const subcategoryBreakdownEl = card.querySelector('.subcategory-breakdown');
+                subcategoryBreakdownEl.innerHTML = ''; // Clear previous
+                subcategories[mainCategory].forEach(subCat => {
+                    const subCatTotal = subcategorySpentsForCard[subCat.value] || 0;
+                    const subCatEl = document.createElement('p');
+                    subCatEl.className = 'flex justify-between text-sm text-slate-700';
+                    subCatEl.innerHTML = `<span>${subCat.label}:</span> <span class="font-medium">${formatCurrency(subCatTotal)}</span>`;
+                    subcategoryBreakdownEl.appendChild(subCatEl);
+                });
+            });
+
+            // Update Couple's Monthly Summary
+            const coupleBudgetTotal = totalCoupleIncome;
+            const coupleFinalBalance = coupleBudgetTotal - totalSpentCouple;
+
+            coupleTotalBudgetEl.textContent = formatCurrency(coupleBudgetTotal);
+            coupleTotalSpentEl.textContent = formatCurrency(totalSpentCouple);
+            coupleFinalBalanceEl.textContent = formatCurrency(coupleFinalBalance);
+            coupleFinalBalanceEl.classList.toggle('text-red-600', coupleFinalBalance < 0);
+            coupleFinalBalanceEl.classList.toggle('text-green-600', coupleFinalBalance >= 0);
+
+            updateChart(coupleBudgetChart, categorySpentsCouple); // Chart uses couple's total spent per category
+            renderTransactionsList();
+            saveState(); // Save state after every UI update
+        }
+
+        function updateAnnualSummaryUI() {
+            let annualIncomePerson1 = 0;
+            let annualIncomePerson2 = 0;
+            let annualSpentEssencial = 0;
+            let annualSpentNaoEssencial = 0;
+            let annualSpentInvestimento = 0;
+            let annualSpentEducacao = 0;
+
+            months.forEach(month => {
+                const monthData = state.monthlyData[month];
+                annualIncomePerson1 += monthData.incomePerson1;
+                annualIncomePerson2 += monthData.incomePerson2;
+
+                monthData.transactions.forEach(transaction => {
+                    if (transaction.mainCategory === 'essencial') annualSpentEssencial += transaction.amount;
+                    else if (transaction.mainCategory === 'nao_essencial') annualSpentNaoEssencial += transaction.amount;
+                    else if (transaction.mainCategory === 'investimento') annualSpentInvestimento += transaction.amount;
+                    else if (transaction.mainCategory === 'educacao') annualSpentEducacao += transaction.amount;
+                });
+            });
+
+            const annualTotalIncome = annualIncomePerson1 + annualIncomePerson2;
+            const annualSpentTotal = annualSpentEssencial + annualSpentNaoEssencial + annualSpentInvestimento + annualSpentEducacao;
+            const annualBalanceTotal = annualTotalIncome - annualSpentTotal;
+
+            annualIncomeTotalEl.textContent = formatCurrency(annualTotalIncome);
+            annualSpentTotalEl.textContent = formatCurrency(annualSpentTotal);
+            annualBalanceTotalEl.textContent = formatCurrency(annualBalanceTotal);
+            annualBalanceTotalEl.classList.toggle('text-red-700', annualBalanceTotal < 0);
+            annualBalanceTotalEl.classList.toggle('text-green-700', annualBalanceTotal >= 0);
+
+            annualSpentEssencialEl.textContent = formatCurrency(annualSpentEssencial);
+            annualSpentNaoEssencialEl.textContent = formatCurrency(annualSpentNaoEssencial);
+            annualSpentInvestimentoEl.textContent = formatCurrency(annualSpentInvestimento);
+            annualSpentEducacaoEl.textContent = formatCurrency(annualSpentEducacao);
+        }
+
+        function populateSubcategories() {
+            const mainCategory = transactionMainCategorySelect.value;
+            transactionSubCategorySelect.innerHTML = '<option value="">Selecione</option>'; // Clear existing options
+            transactionSubCategorySelect.disabled = true;
+
+            if (mainCategory && subcategories[mainCategory]) {
+                subcategories[mainCategory].forEach(subCat => {
+                    const option = document.createElement('option');
+                    option.value = subCat.value;
+                    option.textContent = subCat.label;
+                    transactionSubCategorySelect.appendChild(option);
+                });
+                transactionSubCategorySelect.disabled = false;
+            }
+        }
+
+        function addTransaction() {
+            const date = transactionDateInput.value;
+            const description = transactionDescriptionInput.value.trim();
+            const amount = parseFloat(transactionAmountInput.value);
+            const mainCategory = transactionMainCategorySelect.value;
+            const subCategory = transactionSubCategorySelect.value;
+            const spentBy = transactionSpentBySelect.value;
+
+            if (!date || !description || isNaN(amount) || amount <= 0 || !mainCategory || !subCategory || !spentBy) {
+                alert('Por favor, preencha todos os campos e selecione as categorias e quem gastou.');
+                return;
+            }
+
+            const newTransaction = {
+                id: Date.now(), // Simple unique ID
+                date: date,
+                description: description,
+                amount: amount,
+                mainCategory: mainCategory,
+                subCategory: subCategory,
+                spentBy: spentBy
+            };
+
+            state.monthlyData[state.currentMonth].transactions.push(newTransaction);
+            
+            // Clear inputs
+            transactionDateInput.value = '';
+            transactionDescriptionInput.value = '';
+            transactionAmountInput.value = '';
+            transactionMainCategorySelect.value = '';
+            transactionSubCategorySelect.innerHTML = '<option value="">Selecione a Categoria Principal</option>';
+            transactionSubCategorySelect.disabled = true;
+            transactionSpentBySelect.value = '';
+
+            updateMonthlyUI();
+        }
+
+        function deleteTransaction(id) {
+            const currentMonthTransactions = state.monthlyData[state.currentMonth].transactions;
+            state.monthlyData[state.currentMonth].transactions = currentMonthTransactions.filter(t => t.id !== id);
+            updateMonthlyUI();
+        }
+
+        function renderTransactionsList() {
+            transactionsList.innerHTML = '';
+            const currentMonthTransactions = state.monthlyData[state.currentMonth].transactions;
+
+            if (currentMonthTransactions.length === 0) {
+                noTransactionsMessage.style.display = 'block';
+            } else {
+                noTransactionsMessage.style.display = 'none';
+                currentMonthTransactions.sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort by date descending
+                currentMonthTransactions.forEach(transaction => {
+                    const mainCategoryLabel = transaction.mainCategory.replace('_', ' ').split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
+                    const subCategoryLabel = subcategories[transaction.mainCategory]?.find(s => s.value === transaction.subCategory)?.label || transaction.subCategory;
+                    const spentByLabel = transaction.spentBy === 'person1' ? 'Rogério' : (transaction.spentBy === 'person2' ? 'Sâmady' : 'Casal');
+
+                    const transactionEl = document.createElement('div');
+                    transactionEl.className = 'transaction-item';
+                    transactionEl.innerHTML = `
+                        <span class="font-medium">${new Date(transaction.date).toLocaleDateString('pt-BR')}</span>
+                        <span>${transaction.description}</span>
+                        <span class="font-semibold">${formatCurrency(transaction.amount)}</span>
+                        <span class="text-slate-600">${mainCategoryLabel}</span>
+                        <span class="text-slate-500 text-sm">${subCategoryLabel}</span>
+                        <span class="text-slate-500 text-sm">${spentByLabel}</span>
+                        <button class="delete-btn" data-id="${transaction.id}">X</button>
+                    `;
+                    transactionsList.appendChild(transactionEl);
+                });
+
+                transactionsList.querySelectorAll('.delete-btn').forEach(button => {
+                    button.addEventListener('click', (e) => {
+                        deleteTransaction(parseInt(e.target.dataset.id));
+                    });
+                });
+            }
+        }
+
+        function switchTab(tabName) {
+            tabButtons.forEach(button => {
+                button.classList.remove('active');
+            });
+            document.querySelector(`.tab-button[data-tab="${tabName}"]`).classList.add('active');
+
+            if (tabName === 'resumo_anual') {
+                monthlyContent.classList.remove('active');
+                annualSummaryContent.classList.add('active');
+                updateAnnualSummaryUI();
+            } else {
+                monthlyContent.classList.add('active');
+                annualSummaryContent.classList.remove('active');
+                state.currentMonth = tabName;
+                updateMonthlyUI();
+            }
+        }
+
+        // --- Local Storage Functions ---
+        const LOCAL_STORAGE_KEY = 'casalBudgetState';
+
+        function saveState() {
+            try {
+                localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(state));
+            } catch (e) {
+                console.error("Erro ao salvar estado no localStorage:", e);
+                alert("Não foi possível salvar os dados automaticamente. Verifique as configurações do seu navegador.");
+            }
+        }
+
+        function loadState() {
+            try {
+                const savedState = localStorage.getItem(LOCAL_STORAGE_KEY);
+                if (savedState) {
+                    const parsedState = JSON.parse(savedState);
+                    // Merge loaded state into current state, ensuring all months and their structures exist
+                    Object.assign(state, parsedState);
+                    // Ensure monthlyData has all months initialized, even if not in savedState
+                    months.forEach(month => {
+                        if (!state.monthlyData[month]) {
+                            state.monthlyData[month] = { incomePerson1: 0, incomePerson2: 0, transactions: [] };
+                        }
+                        // Ensure transactions array exists
+                        if (!state.monthlyData[month].transactions) {
+                            state.monthlyData[month].transactions = [];
+                        }
+                    });
+                }
+            } catch (e) {
+                console.error("Erro ao carregar estado do localStorage:", e);
+                alert("Não foi possível carregar os dados salvos. Iniciando com dados vazios.");
+                // Clear localStorage if parsing fails to prevent continuous errors
+                localStorage.removeItem(LOCAL_STORAGE_KEY);
+            }
+        }
+
+        // Event Listeners
+        monthlyIncomePerson1Input.addEventListener('input', (e) => {
+            state.monthlyData[state.currentMonth].incomePerson1 = parseFloat(e.target.value) || 0;
+            updateMonthlyUI();
+        });
+        monthlyIncomePerson2Input.addEventListener('input', (e) => {
+            state.monthlyData[state.currentMonth].incomePerson2 = parseFloat(e.target.value) || 0;
+            updateMonthlyUI();
+        });
+
+        transactionMainCategorySelect.addEventListener('change', populateSubcategories);
+        addTransactionBtn.addEventListener('click', addTransaction);
+
+        tabButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const tabName = e.target.dataset.tab;
+                switchTab(tabName);
+            });
+        });
+
+        // Initial load
+        loadState(); // Load state before initial UI update
+        switchTab(state.currentMonth); // Start with the last active month or January
+    </script>
+</body>
+</html>
